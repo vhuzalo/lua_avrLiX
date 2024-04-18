@@ -1,3 +1,5 @@
+local Voltage_Filtered  = 0
+
 local translations = {en="avrLiX", de="avrLiX"}
 
 local function name(widget)
@@ -10,6 +12,44 @@ local function create()
     return {source=1, min=-1024, max=1024, value=0}
     --can be accessed with e.g. widget.souce
 end
+
+local function CalcPercent(Voltage_Source, Cell_Count)
+
+    
+    -- the following table of percentages has 121 percentage values ,
+    -- starting from 3.0 V to 4.2 V , in steps of 0.01 V 
+   Voltage_Filtered = Voltage_Filtered * 0.9  +  Voltage_Source * 0.1
+
+   local Percent_Table = 
+   {0  , 1  , 1  ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 , 
+    2  , 2  , 2  ,  2 ,  2 ,  2 ,  2 ,  2 ,  2 ,  2 ,  3 ,  3 ,  3 ,  3 ,  3 ,  3 ,  3 ,  3 ,  3 ,  3 , 
+    4  , 4  , 4  ,  4 ,  4 ,  4 ,  4 ,  4 ,  5 ,  5 ,  5 ,  5 ,  5 ,  5 ,  6 ,  6 ,  6 ,  6 ,  6 ,  6 , 
+    7  , 7  , 7  ,  7 ,  8 ,  8 ,  9 ,  9 , 10 , 12 , 13 , 14 , 17 , 19 , 20 , 22 , 23 , 26 , 28 , 30 , 
+    33 , 36 , 39 , 42 , 45 , 48 , 51 , 54 , 57 , 58 , 60 , 62 , 64 , 66 , 67 , 69 , 70 , 72 , 74 , 75 , 
+    77 , 78 , 80 , 81 , 82 , 84 , 85 , 86 , 86 , 87 , 88 , 89 , 91 , 92 , 94 , 95 , 96 , 97 , 97 , 99 , 100  }
+    
+   if Cell_Count > 0 then 
+
+     local Voltage_Cell    = 3
+     local Battery_Percent = 0
+     local Table_Index     = 1
+     
+     Voltage_Source = Voltage_Source * 100
+     
+     Voltage_Cell      = Voltage_Source / Cell_Count 
+     Table_Index       = math.floor(Voltage_Cell - 298 )
+     Battery_Connected = 1     
+
+     if Table_Index    > 120 then  Table_Index = 120 end  --## check for index bounds
+     if Table_Index    <   1 then  Table_Index =   1 end
+
+     Battery_Percent   = Percent_Table[Table_Index]  
+     
+     return Battery_Percent
+   end
+ 
+end
+
 local function round(num, dp)
     --[[
     round a number to so-many decimal of places, which can be negative, 
@@ -41,12 +81,11 @@ local function paint(widget)
     local box_left, box_width = 4, w - 8
 
     -- Source name and value
-    lcd.drawText(box_left, 0, widget.voltageSource:name())
-    lcd.drawText(box_left + box_width, 0, widget.voltageSource:stringValue(), RIGHT)
+    lcd.drawText(box_left, 0, widget.voltageSource:name()..": "..widget.numberCells.."S")
+    lcd.drawText(box_left + box_width, 0, round(widget.voltageSource:value(),2).." v", RIGHT)    
    
     --Calculate remaining percentage
-
-    local remainingPercentage =  (widget.avgCellVoltage-widget.minCellVoltage)/(widget.maxCellVoltage-widget.minCellVoltage)
+    local remainingPercentage = CalcPercent(widget.voltageSource:value(), widget.numberCells)
 
     -- background
     lcd.color(lcd.RGB(200, 200, 200))
@@ -62,7 +101,7 @@ local function paint(widget)
             lcd.color(RED)
         end
     end
-    local gauge_width = (((box_width - 2)) * remainingPercentage) + 2
+    local gauge_width = (((box_width - 2)) * (remainingPercentage/100)) + 2
     lcd.drawFilledRectangle(box_left, box_top, gauge_width, box_height)
 
     --average Voltage Text
@@ -71,12 +110,9 @@ local function paint(widget)
     
     local voltageUnit =""
 
-    if (system.getLocale() == "de") then
-        voltageUnit = " V/Zelle"
-    else
-        voltageUnit = " V/Cell"
-    end
-    lcd.drawText(box_left + box_width / 2, box_top + (box_height - text_h) / 2, round(widget.avgCellVoltage,2)..voltageUnit, CENTERED)
+    local barText = round(widget.avgCellVoltage,2).."v   "..math.abs(remainingPercentage).."%"
+
+    lcd.drawText(box_left + box_width / 2, box_top + (box_height - text_h) / 2, barText, CENTERED)
 end
 
 local function wakeup(widget)
@@ -128,26 +164,30 @@ local function wakeup(widget)
     widget.avgCellVoltage = widget.sourceValue / numCell
 
     --Play Voltage when switch is triggered and repeat
- if switch:state()  then
-    if widget.repeatReading == true then
-        system.playNumber(widget.avgCellVoltage,UNIT_VOLT,2)
-        widget.repeatReading=false
+    if switch then
+        if switch:state()  then
+            if widget.repeatReading == true then
+                system.playNumber(widget.avgCellVoltage,UNIT_VOLT,2)
+                widget.repeatReading=false
+            end
+            --Repeate only every x seconds
+            if (os.time()-widget.timeReadout)>widget.repeatSeconds then
+                widget.timeReadout=os.time()
+                widget.repeatReading=true    
+            end
+        else
+            widget.repeatReading = true
+            widget.timeReadout=os.time()
+        end
     end
-    --Repeate only every x seconds
-    if (os.time()-widget.timeReadout)>widget.repeatSeconds then
-        widget.timeReadout=os.time()
-        widget.repeatReading=true    
-    end
-else
-    widget.repeatReading = true
-    widget.timeReadout=os.time()
-end
-
 -- Repeat alarm 
 if (os.time() - widget.lastTimeAlarmCheck) >= secondsToRepeatAlarm then
     widget.lowAlarmCallout = false;
     widget.criticalAlarmCallout = false;
 end 
+
+-- Skip reading when model not connected yet
+if widget.sourceValue == 0 then return end
 
 --AlarmVoltage Readout
 if (widget.avgCellVoltage <= widget.lowAlarmVoltage 

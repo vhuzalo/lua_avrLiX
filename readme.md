@@ -1,7 +1,7 @@
 # avgLiX
 is Lua Script for Ethos, that creates a widget to calculate and show the average Voltage per Cell of a battery pack from a single voltage source.
 
-![Widget](pictures/avgLiX_WidgetScreen1.jpg)
+![Widget](pictures/widget.png)
 
 ## Functions
 * Shows the voltage of the battery pack and the average cell voltage.
