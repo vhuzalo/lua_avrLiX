@@ -13,8 +13,15 @@ local function create()
     --can be accessed with e.g. widget.souce
 end
 
+local function nullSafeGet(value) 
+    if value == nil then return 0 end
+
+    return value
+end
+
 local function CalcPercent(Voltage_Source, Cell_Count)
 
+   Voltage_Source = nullSafeGet(Voltage_Source)
     
     -- the following table of percentages has 121 percentage values ,
     -- starting from 3.0 V to 4.2 V , in steps of 0.01 V 
@@ -55,7 +62,7 @@ local function round(num, dp)
     round a number to so-many decimal of places, which can be negative, 
     e.g. -1 places rounds to 10's,  a]]--
     local mult = 10^(dp or 0)
-    return math.floor(num * mult + 0.5)/mult
+    return math.floor(nullSafeGet(num) * mult + 0.5)/mult
 end
 local function paint(widget)
 
@@ -92,13 +99,18 @@ local function paint(widget)
     lcd.drawFilledRectangle(box_left, box_top, box_width, box_height)
     
     --Voltage bar with color-changing according voltage
-    if (widget.avgCellVoltage >=widget.lowAlarmVoltage) then
-        lcd.color(GREEN)
-    else
-        if (widget.avgCellVoltage<widget.lowAlarmVoltage and widget.avgCellVoltage>=widget.criticalAlarmVoltage) then
-            lcd.color(YELLOW)
+    if widget.lowAlarmVoltage then;
+
+        widget.avgCellVoltage = nullSafeGet(widget.avgCellVoltage) 
+
+        if (widget.avgCellVoltage >=widget.lowAlarmVoltage) then
+            lcd.color(GREEN)
         else
-            lcd.color(RED)
+            if (widget.avgCellVoltage<widget.lowAlarmVoltage and widget.avgCellVoltage>=widget.criticalAlarmVoltage) then
+                lcd.color(YELLOW)
+            else
+                lcd.color(RED)
+            end
         end
     end
     local gauge_width = (((box_width - 2)) * (remainingPercentage/100)) + 2
@@ -121,7 +133,7 @@ local function wakeup(widget)
     local secondsToRepeatAlarm = 6
 
     --First init of values (to prevent nil-Errors)
-    if (widget.sourceValue) == nil then
+    if widget.sourceValue == nil then
         widget.sourceValue = 0
     end
 
@@ -152,7 +164,7 @@ local function wakeup(widget)
         widget.lastTimeAlarmCheck = os.time()
     end
 
-    --trigger Refresh screen and value if coltageSource changes
+    --trigger Refresh screen and value if voltageSource changes
     if widget.voltageSource then
         local newValue = widget.voltageSource:value()
         if widget.sourceValue ~= newValue then
@@ -161,7 +173,8 @@ local function wakeup(widget)
         end
     end
     --Calcualte avg Voltage
-    widget.avgCellVoltage = widget.sourceValue / numCell
+    
+    widget.avgCellVoltage =  nullSafeGet(widget.sourceValue) / numCell
 
     --Play Voltage when switch is triggered and repeat
     if switch then
@@ -180,44 +193,47 @@ local function wakeup(widget)
             widget.timeReadout=os.time()
         end
     end
--- Repeat alarm 
-if (os.time() - widget.lastTimeAlarmCheck) >= secondsToRepeatAlarm then
-    widget.lowAlarmCallout = false;
-    widget.criticalAlarmCallout = false;
-end 
+    
+    -- Repeat alarm 
+    if (os.time() - widget.lastTimeAlarmCheck) >= secondsToRepeatAlarm then
+        widget.lowAlarmCallout = false;
+        widget.criticalAlarmCallout = false;
+    end 
 
--- Skip reading when model not connected yet
-if widget.sourceValue == 0 then return end
+    -- Skip reading when model not connected yet
+    if widget.sourceValue == 0 then return end
 
---AlarmVoltage Readout
-if (widget.avgCellVoltage <= widget.lowAlarmVoltage 
-    and widget.avgCellVoltage > widget.criticalAlarmVoltage
-    and widget.lowAlarmCallout == false
-    ) then
+    --AlarmVoltage Readout
+    if widget.lowAlarmVoltage and widget.criticalAlarmVoltage and nullSafeGet(widget.avgCellVoltage) > 1 then 
+        if (widget.avgCellVoltage <= widget.lowAlarmVoltage 
+                    and widget.avgCellVoltage > widget.criticalAlarmVoltage
+                    and widget.lowAlarmCallout == false
+        ) then
         --Play alarm only when avg Voltage only x seconds under thresshold
         if (os.time() - widget.timeLowAlarmReadout) >= widget.waitSecondsLowAlarm then
-            system.playFile("vollow.wav")
+            system.playFile("AUDIO:/vollow.wav")
             system.playHaptic("- . -")
             widget.lowAlarmCallout = true
             widget.lastTimeAlarmCheck = os.time()
         end
-elseif widget.avgCellVoltage > widget.lowAlarmVoltage then
-    widget.lowAlarmCallout = false
-    widget.timeLowAlarmReadout = os.time()
-end
+        elseif widget.avgCellVoltage > widget.lowAlarmVoltage then
+            widget.lowAlarmCallout = false
+            widget.timeLowAlarmReadout = os.time()
+        end
 
-if widget.avgCellVoltage <= widget.criticalAlarmVoltage and widget.criticalAlarmCallout == false then
-    --Play alarm only when avg Voltage only x seconds under thresshold
-    if (os.time() - widget.timeCriticalAlarmReadout) >= widget.waitSecondsCriticalAlarm then
-        system.playFile("volCrit.wav")
-        system.playHaptic("- . -")
-        widget.criticalAlarmCallout = true
-        widget.lastTimeAlarmCheck = os.time()
-    end
-elseif widget.avgCellVoltage > widget.criticalAlarmVoltage then
-    widget.criticalAlarmCallout = false
-    widget.timeCriticalAlarmReadout = os.time()
-end
+        if widget.avgCellVoltage <= widget.criticalAlarmVoltage and widget.criticalAlarmCallout == false then
+            --Play alarm only when avg Voltage only x seconds under thresshold
+            if (os.time() - widget.timeCriticalAlarmReadout) >= widget.waitSecondsCriticalAlarm then
+                system.playFile("AUDIO:/volCrit.wav")
+                system.playHaptic("- . -")
+                widget.criticalAlarmCallout = true
+                widget.lastTimeAlarmCheck = os.time()
+            end
+        elseif widget.avgCellVoltage > widget.criticalAlarmVoltage then
+            widget.criticalAlarmCallout = false
+            widget.timeCriticalAlarmReadout = os.time()
+        end
+    end 
 
 end --function
 
