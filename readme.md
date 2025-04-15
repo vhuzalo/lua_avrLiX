@@ -20,6 +20,6 @@ is Lua Script for Ethos, that creates a widget to calculate and show the average
 2. Copy the files in the folder *\audio* to the folder *\audio* of your sd card
 
 ## Testing
-Tested with device **X20S** and Ethos **1.5.6**
+Tested with device **X20S** and Ethos **1.6.2**
 
 The files *voltageSourceDummy.lua* and *volSourDummy_reg.lua* are lua-sources, that can be used to test in the simulator.
