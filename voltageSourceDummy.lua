@@ -1,6 +1,6 @@
 -- Lua Source Example
 
-local translations = {en="Voltage Dummy", fr="Voltage Dummy"}
+local translations = { en = "Voltage Dummy", fr = "Voltage Dummy" }
 
 local function name(widget)
   local locale = system.getLocale()
@@ -21,7 +21,7 @@ local function sourceWakeup(source)
 end
 
 local function init()
-  system.registerSource({key="VolDum", name=name, init=sourceInit, wakeup=sourceWakeup})
+  system.registerSource({ key = "VolDum", name = name, init = sourceInit, wakeup = sourceWakeup })
 end
 
-return {init=init}
+return { init = init }

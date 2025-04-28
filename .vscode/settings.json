@@ -1,0 +1,20 @@
+{
+    "Lua.diagnostics.globals": [
+        "storage",
+        "system",
+        "line",
+        "form",
+        "lcd",
+        "BLACK",
+        "GREEN",
+        "YELLOW",
+        "RED",
+        "RIGHT",
+        "FONT_STD",
+        "FONT_L",
+        "FONT_XL",
+        "FONT_S",
+        "CENTERED",
+        "UNIT_VOLT"
+    ]
+}
